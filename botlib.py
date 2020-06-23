@@ -1,170 +1,230 @@
 import os
+import datetime
 import discord
-from jellyfish import jaro_winkler
-def get_acronym(gamestring):
-    return "".join(e[0] for e in gamestring.split())
-
-def is_subname(source, target):
-    index=-1
-    #first letter is same
-    if source[0].lower() != target[0].lower():
-        print("Not same first letter")
-        return False
-
-    #every first letter of the target words is in the source
-    for word in target.lower().split():
-        found = False
-        for i in range(len(source)):
-            if word[0] == source[i].lower() and i > index:
-                index = i
-                found = True
-                break
-        if not found:
-            print("Not every first letter of the target words is in the source")
-            return False
-
-    index=-1
-    #every letters of the source is in the target, in this order
-    for letter in source.lower():
-        found = False
-        for i in range(len(target)):
-            if letter == target[i].lower() and i > index:
-                index = i
-                found = True
-                break
-        if not found:
-            print("Not every letters of the source is in the target, in this order")
-            return False
-
-    return True
-
-def new_playdb_line(userid, gamelist):
-    newplayerline = str(userid)
-    for game in gamelist:
-        if game[0].isspace():
-            game = game[1:]
-        newplayerline += "," + game
-    newplayerline += "\n"
-    return newplayerline
-
-def is_same_user(user, username, discriminator):
-    if user.name == username and user.discriminator == discriminator:
-        return True
-    else:
-        return False
 
 def func_bonjour(message, client):
     if str(client.user.id) in message.content or not "<@!" in message.content:
         if is_same_user(message.author, "Harrygiel", "7564"):
             return 'Bonjour Créateur <@%s> !' % message.author.id
-        elif is_same_user(message.author, "Berna", "2042"):
-            return 'Bonjour <@%s>, Impératrice des crabes !' % message.author.id
-        elif is_same_user(message.author, "EmpereurAmecareth", "4363"):
-            return 'Bonjour Templier Noir <@%s> !' % message.author.id
-        elif is_same_user(message.author, "Snaps", "3760"):
-            return 'Bonjour Grand Master <@%s> !' % message.author.id
-        elif is_same_user(message.author, "Réma", "0556"):
-            return 'Bonjour roi des chieurs <@%s>, dieu des casse-couilles, grand chef des faignants et empereur des embêteurs de fille !' % message.author.id
-        elif is_same_user(message.author, "Soja", "6345"):
-            return 'Bonjour Maitresse <@%s> !' % message.author.id
         else:
             return 'Bonjour <@%s> !' % message.author.id
 
-def func_gamelist(message, client):
-    if message.content[1:].lower().startswith('call'):
-        if message.content[6:].isupper() and not " " in message.content[6:]:
-            print(message.content)
-            acronym = True
-        else:
-            acronym = False
-        gamecalled = message.content.lower()[6:]
-        players = []
-        with open("play.db", "r", encoding="UTF-8") as playdb:
-            playline = playdb.readline()
-            while playline:
-                usergames = playline.replace("\n","").split(",")[1:]
-                for usergame in usergames:
-                    if acronym:
-                        if gamecalled == get_acronym(usergame).lower():
-                            gamecalled = usergame
-                            players.append(playline.split(",")[0])
-                            acronym = False
-                        elif is_subname(gamecalled, usergame):
-                            gamecalled = usergame
-                            players.append(playline.split(",")[0])
-                            acronym = False
-                    else:
-                        if jaro_winkler(gamecalled.lower().replace(" ",""), usergame.lower().replace(" ","")) > 0.9:
-                            gamecalled = usergame
-                            players.append(playline.split(",")[0])
-                playline = playdb.readline()
-        if players:
-            msg = "Hey ! <@%s> veut jouer avec vous à %s " % (message.author.id, gamecalled)
-            for player in players:
-                msg += "<@%s> " % player
-            return msg
-        else:
-            #Trying to find if any game is close enough to the called game
-            with open("play.db", "r", encoding="UTF-8") as playdb:
-                playline = playdb.readline()
-                while playline:
-                    usergames = playline.replace("\n","").split(",")[1:]
-                    for usergame in usergames:
-                        if jaro_winkler(gamecalled.lower().replace(" ",""), usergame.lower().replace(" ","")) > 0.8:
-                            return "Personne ne joue à ce jeu :cry: Mais peut être vouliez vous dire %s ?" % usergame
-                    playline = playdb.readline()
-            
-            return "Personne ne joue à ce jeu :cry:"
+async def Quest_Manager(message, client):
+	messageBody = message.content[7:]
+	fileName = "tableList/"+ str(message.channel.id) + ".txt"
+	await message.delete(delay=30)
 
-    elif message.content[1:].lower().startswith('play') or message.content.lower().startswith('unplay'):
-        if message.content.lower().startswith('unplay'):
-            removegame=True
-            gamelist = message.content[8:].split(",")
-        else:
-            removegame=False
-            gamelist = message.content[6:].split(",")
+	if messageBody.lower().startswith('+event') or messageBody.lower().startswith('+e'):
+		await Call_Create_Event(message, fileName)
+		await Call_Update(message, fileName)
+	elif messageBody.lower().startswith('-event') or messageBody.lower().startswith('-e'):
+		await Call_Remove_Event(message, fileName)
+		await Call_Update(message, fileName)
+	elif messageBody.lower().startswith('generate'):
+		await Call_Generate(message, fileName)
+	elif messageBody.lower().startswith('update'):
+		await Call_Update(message, fileName)
+	elif messageBody.lower().startswith('remove'):
+		await Call_Remove(message, fileName)
+	else:
+		await message.channel.send("Commande non reconnu") 
 
-        with open("play.db", "r", encoding="UTF-8") as playdb:
-            with open("play.db.tmp", "w", encoding="UTF-8") as playdbtmp:
-                newline = None
-                playline = playdb.readline()
-                while playline:
-                    if playline.startswith(str(message.author.id)):
-                        #OLD USER
-                        usergames = playline.replace("\n","").split(",")[1:]
-                        for game in gamelist:
-                            if removegame:
-                                for usergame in usergames:
-                                    if game.lower().replace(" ","") == usergame.lower().replace(" ",""):
-                                        usergames.remove(usergame)
-                                        break
-                            else:
-                                found = False
-                                for usergame in usergames:
-                                    if game.lower().replace(" ","") == usergame.lower().replace(" ",""):
-                                        found = True
-                                        break
-                                if not found:
-                                    usergames.append(game)
 
-                        newline = new_playdb_line(message.author.id, usergames)
-                        playdbtmp.write(newline)
-                    else:
-                        playdbtmp.write(playline)
-                    playline = playdb.readline()
 
-                if not newline:
-                    #NEW USER
-                    if removegame:
-                        return "Vous n'êtes pas dans la base de donnée de jeu divers !"
-                    newline = new_playdb_line(message.author.id, gamelist)
-                    playdbtmp.write(newline)
-        os.remove("play.db.old")
-        os.rename("play.db", "play.db.old")
-        os.rename("play.db.tmp", "play.db")
-        gamelist = newline.split(",")[1:]
-        returntxt = "Vous jouez maintenant à :\n"
-        for game in gamelist:
-            returntxt += game + "\n"
+async def Call_Create_Event(message, fileName):
+	messageBody = message.content[7:]
+	questParameters = messageBody.split(" ")[1:]
+	if len(questParameters)<5:
+		tmpMsg = await message.channel.send("Ajouter un évènement demande plus de paramètre !")
+		await tmpMsg.delete(delay=10)
+		return
 
-        return returntxt
+	sessionDict = Get_Event_Dict(fileName)
+	if questParameters[0]+questParameters[1]+questParameters[4] in sessionDict:
+		tmpMsg = await message.channel.send("L'évènement est déjà dans la table des quêtes !")
+		await tmpMsg.delete(delay=10)
+		return
+
+	with open(fileName, "a") as fileP:
+		fileP.write("\n" + questParameters[0] + "\\" + questParameters[1] + "\\" + questParameters[2] + "\\" + questParameters[3] + "\\" + questParameters[4] + "\\")
+	tmpMsg = await message.channel.send("Evènement Ajouté!")
+	await tmpMsg.delete(delay=10)
+	return
+
+async def Call_Remove_Event(message, fileName):
+	messageBody = message.content[7:]
+	questParameters = messageBody.split(" ")[1:]
+	if len(questParameters)<3:
+		tmpMsg = await message.channel.send("Supprimer un évenement demande plus de paramètre !")
+		await tmpMsg.delete(delay=10)
+		return
+
+	sessionDict = Get_Event_Dict(fileName)
+	if questParameters[0]+questParameters[1]+questParameters[2] in sessionDict:
+		sessionDict.pop(questParameters[0]+questParameters[1]+questParameters[2])
+		Set_Event_Dict(fileName, sessionDict)
+		tmpMsg = await message.channel.send("Evènement supprimé!")
+		await tmpMsg.delete(delay=10)
+		return
+	else:
+		tmpMsg = await message.channel.send("L'évènement n'est pas dans la table des quêtes !")
+		await tmpMsg.delete(delay=10)
+		return
+
+async def Call_Generate(message, fileName):
+	messageBody = message.content[7:]
+	nbDay = 20
+	noEmpty = False
+	questParameters = messageBody.split(" ")[1:]
+	for questParameter in questParameters:
+		if questParameter.lower() == "-noempty" or questParameter.lower() == "-nonvide":
+			noEmpty = True
+			continue
+		if questParameter.isnumeric():
+			nbDay = int(questParameter)
+			continue
+
+	if os.path.exists(fileName):
+		tmpMsg = await message.channel.send("La table des quêtes a déjà été généré. Utilisez \"!quest remove\" pour la supprimer")
+		await tmpMsg.delete(delay=10)
+		return
+	sent = await message.channel.send(Generate_Table(fileName, nbDay, noEmpty))
+	Generate_New_DB(fileName, str(sent.id), str(nbDay), str(noEmpty))
+
+async def Call_Update(message, fileName):
+	questMessageID = Get_Quest_Var(fileName, "messageID")
+	nbDay = int(Get_Quest_Var(fileName, "nbDay"))
+	noEmpty = False
+	if Get_Quest_Var(fileName, "noEmpty") == "True":
+		noEmpty = True
+	questMsg =  await message.channel.fetch_message(int(questMessageID))
+	await questMsg.edit(content=Generate_Table(fileName, nbDay, noEmpty))
+
+async def Call_Remove(message, fileName):
+	if not(os.path.exists(fileName)):
+		tmpMsg = await message.channel.send("Aucune table des quêtes n'a été trouvé. Utilisez  \"!quest generate\" Pour en créer une")
+		await tmpMsg.delete(delay=10)
+		return
+	questMessageID = Get_Quest_Var(fileName, "messageID")
+	questMsg =  await message.channel.fetch_message(int(questMessageID))
+	await questMsg.delete()
+	os.remove(fileName)
+
+def Generate_Table(fileName, nbDay, noEmpty):
+	sessionDict = Get_Event_Dict(fileName)
+
+	#[ v for k,v in my_dict.items() if 'Date' in k]
+	tmpString = "```ini\n+------------+-------+--------------------+----+--------------+\n"
+
+	for j in range(0, nbDay):
+		dayString = datetime.date.today() + datetime.timedelta(days=j)
+		dayString = dayString.strftime("%d/%m/%y")
+		dayList = [ v for k,v in sessionDict.items() if dayString in k]
+		if not dayList:
+			if not(noEmpty):
+				tmpString += Generate_Empty_Day(dayString)
+		else:
+			for dayEvent in dayList:
+				tmpString += Generate_Day(dayEvent[0], dayEvent[1], dayEvent[2], dayEvent[3], dayEvent[4], dayEvent[5:])
+				tmpString += "+------------+-------+--------------------+----+--------------+\n"
+
+	tmpString += "+------------+-------+--------------------+----+--------------+\n```\n"
+
+	return tmpString
+
+def Generate_Empty_Day(date):
+	tmpString = "| %s |              ❌ VIDE ❌                         |\n" % date
+	return tmpString
+
+def Generate_Day(date, hour, nameRPG, maxPlayer, mj, playerList):
+	tmpString = "+------------+-------+--------------------+----+--------------+\n"
+	tmpString += "|[%s]| %s | %s | %s | %s |\n" % (date, hour.ljust(5), nameRPG.ljust(20)[:20], maxPlayer.ljust(2), mj.ljust(12)[:12])
+	tmpString += "+------------+-------+--------------------+----+--------------+\n"
+	tmpString += Generate_Player_Table(playerList)
+	return tmpString
+
+def Generate_Player_Table(playerList):
+	tmpString = "| "
+	listLen = len(playerList)
+	if playerList[0] == "\n":
+		tmpString += "".ljust(12*5) + "|\n"
+		return tmpString
+	for i in range(0,listLen):
+		tmpString += playerList[i].ljust(11)[:11] + " "
+		if (i+1)%5 == 0 and i<listLen-1:
+			tmpString += "|\n| "
+	if listLen%5 ==0:
+		tmpString += "|\n"
+	else:
+		tmpString += "".ljust(12*(5- listLen%5)) + "|\n"
+	return tmpString
+
+def Generate_New_DB(fileName, messageID, nbDay, noEmpty):
+	with open(fileName, "w", encoding="UTF-8") as fileP:
+		fileP.write("#messageID=" + str(messageID) + "\n")
+		fileP.write("#nbDay=" + str(nbDay) + "\n")
+		fileP.write("#noEmpty=" + str(noEmpty) + "\n")
+
+def Get_Quest_Var(fileName, varName):
+	with open(fileName, "r", encoding="UTF-8") as fileP:
+		line = fileP.readline()
+		getString = "#" + varName + "="
+
+		while line:
+
+			if line.lower().startswith(getString.lower()):
+				return line[len(getString):-1]
+			line = fileP.readline()
+	return ""
+
+def Get_Event_Dict(fileName):
+	sessionDict = dict()
+	if os.path.exists(fileName):
+		with open(fileName, "r", encoding="UTF-8") as fileP:
+			fileLines = fileP.readlines()
+
+		for i in range(0, len(fileLines)):
+			if fileLines[i].startswith("#"):
+				continue
+			lineArray = fileLines[i].split("\\")
+			sessionDict[lineArray[0] + lineArray[1] + lineArray[4]] = lineArray
+	return sessionDict
+
+def Set_Event_Dict(fileName, eventDict):
+	
+	newFileLine = []
+	if os.path.exists(fileName):
+		with open(fileName, "r", encoding="UTF-8") as fileP:
+			fileLine = fileP.readline()
+			while fileLine:
+				if fileLine.startswith("#"):
+					newFileLine.append(fileLine)
+				else:
+					break
+				fileLine = fileP.readline()
+
+	for key, value in eventDict.items():
+		newString = value[0] + "\\" + value[1] + "\\" + value[2] + "\\" + value[3] + "\\" + value[4]
+		if len(value)>5:
+			for playerName in value[5:]:
+				newString += "\\" + playerName
+		else:
+			newString += "\\"
+		newFileLine.append(newString)
+
+	with open(fileName, "w", encoding="UTF-8") as fileP:
+		fileP.writelines(newFileLine)
+
+def Set_Quest_Var(fileName, varName, varVal):
+	with open(fileName, "r", encoding="UTF-8") as fileP:
+		fileLines = fileP.readlines()
+
+	getString = "#" + varName + "="
+
+	for i in range(0, len(fileLines)):
+		if fileLines[i].lower().startswith(getString.lower()):
+			fileLines[i] = getString + varVal + "\n"
+			break
+
+	with open(fileName, "w", encoding="UTF-8") as fileP:
+		fileP.writelines(fileLines)

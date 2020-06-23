@@ -1,0 +1,3 @@
+#messageID=
+#NbDay=15
+#NoEmpty=false
