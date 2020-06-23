@@ -1,3 +1,8 @@
-#messageID=725093096773255271
+#messageID=725116491208458312
 #nbDay=10
 #noEmpty=False
+26/06/20\20h00\SilverCross\5\Blanck\
+27/06/20\9h30\Univers_TEST\4\<@!186428585576366081>\
+26/06/20\20h00\SilverCross\5\patate\
+26/06/20\20h00\SilverCross\5\Blan\
+26/06/20\20h00\SilverCross\5\Bla\

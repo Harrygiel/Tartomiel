@@ -184,7 +184,7 @@ def Get_Event_Dict(fileName):
 			fileLines = fileP.readlines()
 
 		for i in range(0, len(fileLines)):
-			if fileLines[i].startswith("#"):
+			if fileLines[i].startswith("#") or fileLines[i].startswith("\n"):
 				continue
 			lineArray = fileLines[i].split("\\")
 			sessionDict[lineArray[0] + lineArray[1] + lineArray[4]] = lineArray
