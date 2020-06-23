@@ -1,0 +1,6 @@
+*.txt
+*.db
+*.db.old
+*.png
+__pycache__/
+apicache-py3/
