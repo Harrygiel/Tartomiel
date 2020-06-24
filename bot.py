@@ -1,8 +1,6 @@
-from datetime import datetime, timedelta
 import discord
 import botlib
 
-remaTimer = datetime.now()
 client = discord.Client()
 
 @client.event
