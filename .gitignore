@@ -1,5 +1,5 @@
-*.db
-*.db.old
-*.png
+testFile.txt
+discordtoken.py
+tableList/*
 __pycache__/
 apicache-py3/

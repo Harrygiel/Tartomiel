@@ -1,5 +1,6 @@
 import discord
 import botlib
+import discordtoken
 
 client = discord.Client()
 
@@ -21,4 +22,4 @@ async def on_message(message):
         #print(string)
         #await message.channel.send(string) 
 
-client.run('NzI1MDAyNTk3NTA0OTA5NDY1.XvMcMQ.Yc1UHnmBOwALA52Dpd6eeioA3AQ')
+client.run(discordtoken.TOKEN)
