@@ -1,106 +1,107 @@
 import os
+import asyncio
 import datetime
 import discord
 import string
-
+import __main__ as bot
 DELIMITER = "+----------+-------+----------------------+----+--------------+\n"
+TMPMESSAGETIMER = 10
+
 
 def func_bonjour(message, client):
-    if str(client.user.id) in message.content or not "<@!" in message.content:
+    if str(client.user.id) in message.content or "<@!" not in message.content:
         if is_same_user(message.author, "Harrygiel", "7564"):
             return 'Bonjour Créateur <@%s> !' % message.author.id
         else:
             return 'Bonjour <@%s> !' % message.author.id
 
-async def Quest_Manager(message, client):
-    global Gclient
+async def Quest_Manager():
+    print("Quest Manager Started")
+    lastUpdate = datetime.date.today()-datetime.timedelta(days=-1)
+    while 1:
+        await asyncio.sleep(60)
+        if(lastUpdate+datetime.timedelta(days=1) < datetime.date.today()):
+            print("[" + datetime.date.today().strftime("%m/%d/%Y-%H:%M:%S") + "]" + "Last update is 1 day ago. AutoUpdating")
+            lastUpdate = datetime.date.today()
+            for file in os.listdir("tableList"):
+                if file.endswith(".txt"):
+                    await Auto_Update(int(file[:-4]), "tableList/" + file)
+
+async def Quest_Command(message, client):
     global Gmessage
-    Gclient = client
     Gmessage = message
     messageBody = message.content[7:]
-    fileName = "tableList/"+ str(message.channel.id) + ".txt"
-    await message.delete(delay=30)
+    fileName = "tableList/" + str(message.channel.id) + ".txt"
+    await asyncio.create_task(asyncio.wait_for(message.delete(delay=30), timeout=5.0))
+
+    isAdmin = False
+    if message.author.permissions_in(message.channel).manage_messages:
+        isAdmin = True
 
     if messageBody.lower().startswith('+event') or messageBody.lower().startswith('+e'):
-        if not(message.author.permissions_in(message.channel).manage_messages):
-            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
-            await tmpMsg.delete(delay=10)
-            return
+        if not isAdmin:
+            return await asyncio.create_task(Send_Not_Admin_Message())
         await Call_Create_Event(message, fileName)
-        await Call_Update(message, fileName)
+        await Call_Update(message.channel, fileName)
 
     elif messageBody.lower().startswith('-event') or messageBody.lower().startswith('-e'):
-        if not(message.author.permissions_in(message.channel).manage_messages):
-            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
-            await tmpMsg.delete(delay=10)
-            return
+        if not isAdmin:
+            return await asyncio.create_task(Send_Not_Admin_Message())
         await Call_Remove_Event(message, fileName)
-        await Call_Update(message, fileName)
+        await Call_Update(message.channel, fileName)
 
     elif messageBody.lower().startswith('+play') or messageBody.lower().startswith('+p'):
         await Call_Create_Particip(message, fileName, message.author.id)
-        await Call_Update(message, fileName)
+        await Call_Update(message.channel, fileName)
 
     elif messageBody.lower().startswith('-play') or messageBody.lower().startswith('-p'):
         await Call_Remove_Particip(message, fileName, message.author.id)
-        await Call_Update(message, fileName)
+        await Call_Update(message.channel, fileName)
 
     elif messageBody.lower().startswith('generate'):
-        if not(message.author.permissions_in(message.channel).manage_messages):
-            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
-            await tmpMsg.delete(delay=10)
-            return
+        if not isAdmin:
+            return await asyncio.create_task(Send_Not_Admin_Message())
         await Call_Generate(message, fileName)
 
     elif messageBody.lower().startswith('update'):
-        if not(message.author.permissions_in(message.channel).manage_messages):
-            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
-            await tmpMsg.delete(delay=10)
-            return
-        await Call_Update(message, fileName)
+        if not isAdmin:
+            return await asyncio.create_task(Send_Not_Admin_Message())
+        await Call_Update(message.channel, fileName)
 
     elif messageBody.lower().startswith('remove'):
-        if not(message.author.permissions_in(message.channel).manage_messages):
-            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
-            await tmpMsg.delete(delay=10)
-            return
+        if not isAdmin:
+            return await asyncio.create_task(Send_Not_Admin_Message())
         await Call_Remove(message, fileName)
 
     else:
-        await message.channel.send("Commande non reconnu") 
-
+        await message.channel.send("Commande non reconnu")
 
 
 async def Call_Create_Event(message, fileName):
     messageBody = message.content[7:]
     questParameters = messageBody.split(" ")[1:]
-    if len(questParameters)<5:
-        tmpMsg = await message.channel.send("Ajouter un évènement demande plus de paramètre !")
-        await tmpMsg.delete(delay=10)
-        return
+    if len(questParameters) < 5:
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Ajouter un évènement demande plus de paramètre !", TMPMESSAGETIMER))
 
     if len(questParameters[0]) == 10:
         questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
     questParameters[4] = only_numerics(questParameters[4])
     sessionDict = Get_Event_Dict(fileName)
     if questParameters[0]+questParameters[1]+questParameters[4] in sessionDict:
-        tmpMsg = await message.channel.send("L'évènement est déjà dans la table des quêtes !")
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement est déjà dans la table des quêtes !", TMPMESSAGETIMER))
+        tmpMsg = await message.channel.send()
         await tmpMsg.delete(delay=10)
         return
 
     with open(fileName, "a") as fileP:
         fileP.write("\n" + questParameters[0] + "\\" + questParameters[1] + "\\" + questParameters[2] + "\\" + questParameters[3] + "\\" + questParameters[4] + "\\")
-    tmpMsg = await message.channel.send("Evènement Ajouté!")
-    await tmpMsg.delete(delay=10)
-    return
+    return await asyncio.create_task(Send_Tmp_Message(message.channel, "Evènement Ajouté!", TMPMESSAGETIMER))
 
 async def Call_Remove_Event(message, fileName):
     messageBody = message.content[7:]
     questParameters = messageBody.split(" ")[1:]
-    if len(questParameters)<3:
-        tmpMsg = await message.channel.send("Supprimer un évenement demande plus de paramètre !")
-        await tmpMsg.delete(delay=10)
-        return
+    if len(questParameters) < 3:
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Supprimer un évenement demande plus de paramètre !", TMPMESSAGETIMER))
 
     sessionDict = Get_Event_Dict(fileName)
     if len(questParameters[0]) == 10:
@@ -109,13 +110,9 @@ async def Call_Remove_Event(message, fileName):
     if questParameters[0]+questParameters[1]+questParameters[2] in sessionDict:
         sessionDict.pop(questParameters[0]+questParameters[1]+questParameters[2])
         Set_Event_Dict(fileName, sessionDict)
-        tmpMsg = await message.channel.send("Evènement supprimé!")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Evènement supprimé!", TMPMESSAGETIMER))
     else:
-        tmpMsg = await message.channel.send("L'évènement n'est pas dans la table des quêtes !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement n'est pas dans la table des quêtes !", TMPMESSAGETIMER))
 
 async def Call_Create_Particip(message, fileName, userID):
     messageBody = message.content[7:]
@@ -124,61 +121,44 @@ async def Call_Create_Particip(message, fileName, userID):
     if len(questParameters[0]) == 10:
         questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
     if len(questParameters) == 1:
-        eventKeyArray = [ k for k,v in sessionDict.items() if questParameters[0] in k]
+        eventKeyArray = [k for k, v in sessionDict.items() if questParameters[0] in k]
         if len(eventKeyArray) == 0:
-            tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
-            await tmpMsg.delete(delay=10)
-            return
-        elif len(eventKeyArray) >1:
-            tmpMsg = await message.channel.send("Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande")
-            await tmpMsg.delete(delay=10)
-            return
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement auquel vous voulez participer n'existe pas !", TMPMESSAGETIMER))
+        elif len(eventKeyArray) > 1:
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande", TMPMESSAGETIMER))
         eventKey = eventKeyArray[0]
     elif len(questParameters) > 2:
         questParameters[2] = only_numerics(questParameters[2])
         eventKey = questParameters[0]+questParameters[1]+questParameters[2]
     else:
-        tmpMsg = await message.channel.send("Le nombre de paramètre n'est pas cohérant")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Le nombre de paramètre n'est pas cohérant", TMPMESSAGETIMER))
 
     if not(eventKey in sessionDict):
-        tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement auquel vous voulez participer n'existe pas !", TMPMESSAGETIMER))
 
     adminPerm = False
     if message.author.permissions_in(message.channel).manage_messages:
         adminPerm = True
 
-    if adminPerm != True and int(sessionDict[eventKey][3]) <= len(sessionDict[eventKey])-5:
-        tmpMsg = await message.channel.send("L'évènement est déjà complet !")
-        await tmpMsg.delete(delay=10)
-        return
+    if adminPerm is not True and int(sessionDict[eventKey][3]) <= len(sessionDict[eventKey])-5:
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement est déjà complet !", TMPMESSAGETIMER))
 
-    if len(questParameters)>3:
-        if adminPerm != True:
-            tmpMsg = await message.channel.send("Vous n'avez pas les droits pour ajouter d'autre joueurs !")
-            await tmpMsg.delete(delay=10)
-            return
+    if len(questParameters) > 3:
+        if adminPerm is not True:
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous n'avez pas les droits pour ajouter d'autre joueurs !", TMPMESSAGETIMER))
+
         for userName in questParameters[3:]:
-            if userName !="":
+            if userName != "":
                 sessionDict[eventKey].append(only_numerics(userName))
         Set_Event_Dict(fileName, sessionDict)
-        tmpMsg = await message.channel.send("Les participants ont bien été ajouté, administrateur !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Les participants ont bien été ajouté, administrateur !", TMPMESSAGETIMER))
 
     if str(userID) in sessionDict[eventKey]:
-        tmpMsg = await message.channel.send("Vous participez déjà à cet évènement !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous participez déjà à cet évènement !", TMPMESSAGETIMER))
 
     sessionDict[eventKey].append(str(userID))
     Set_Event_Dict(fileName, sessionDict)
-    tmpMsg = await message.channel.send("Participation ajouté!")
-    await tmpMsg.delete(delay=10)
-    return
+    return await asyncio.create_task(Send_Tmp_Message(message.channel, "Participation ajouté!", TMPMESSAGETIMER))
 
 async def Call_Remove_Particip(message, fileName, userID):
     messageBody = message.content[7:]
@@ -187,60 +167,41 @@ async def Call_Remove_Particip(message, fileName, userID):
     if len(questParameters[0]) == 10:
         questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
     if len(questParameters) == 1:
-        eventKeyArray = [ k for k,v in sessionDict.items() if questParameters[0] in k]
+        eventKeyArray = [k for k, v in sessionDict.items() if questParameters[0] in k]
         if len(eventKeyArray) == 0:
-            tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
-            await tmpMsg.delete(delay=10)
-            return
-        elif len(eventKeyArray) >1:
-            tmpMsg = await message.channel.send("Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande")
-            await tmpMsg.delete(delay=10)
-            return
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement auquel vous voulez participer n'existe pas !", TMPMESSAGETIMER))
+        elif len(eventKeyArray) > 1:
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande", TMPMESSAGETIMER))
         eventKey = eventKeyArray[0]
     elif len(questParameters) > 2:
         questParameters[2] = only_numerics(questParameters[2])
         eventKey = questParameters[0]+questParameters[1]+questParameters[2]
     else:
-        tmpMsg = await message.channel.send("Le nombre de paramètre n'est pas cohérant")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Le nombre de paramètre n'est pas cohérant", TMPMESSAGETIMER))
 
     if not(eventKey in sessionDict):
-        tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "L'évènement auquel vous voulez participer n'existe pas !", TMPMESSAGETIMER))
 
     adminPerm = False
     if message.author.permissions_in(message.channel).manage_messages:
         adminPerm = True
 
-    if len(questParameters)>3:
-        if adminPerm != True:
-            tmpMsg = await message.channel.send("Vous n'avez pas les droits pour supprimer d'autre joueurs !")
-            await tmpMsg.delete(delay=10)
-            return
+    if len(questParameters) > 3:
+        if adminPerm is not True:
+            return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous n'avez pas les droits pour supprimer d'autre joueurs !", TMPMESSAGETIMER))
         for userName in questParameters[3:]:
             sessionDict[eventKey].remove(only_numerics(userName))
         Set_Event_Dict(fileName, sessionDict)
-        tmpMsg = await message.channel.send("Les participants ont bien été retiré, administrateur !")
-        await tmpMsg.delete(delay=10)
-        return
-
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Les participants ont bien été retiré, administrateur !", TMPMESSAGETIMER))
 
     if str(userID) == sessionDict[eventKey][4]:
-        tmpMsg = await message.channel.send("Vous êtes le MJ !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous êtes le MJ !", TMPMESSAGETIMER))
 
     if not(str(userID) in sessionDict[eventKey]):
-        tmpMsg = await message.channel.send("Vous ne participez pas à cet évènement !")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous ne participez pas à cet évènement !", TMPMESSAGETIMER))
     sessionDict[eventKey].remove(str(userID))
     Set_Event_Dict(fileName, sessionDict)
-    tmpMsg = await message.channel.send("Participation supprimé!")
-    await tmpMsg.delete(delay=10)
-    return
+    return await asyncio.create_task(Send_Tmp_Message(message.channel, "Participation supprimé!", TMPMESSAGETIMER))
 
 async def Call_Generate(message, fileName):
     messageBody = message.content[7:]
@@ -256,9 +217,7 @@ async def Call_Generate(message, fileName):
             continue
 
     if os.path.exists(fileName):
-        tmpMsg = await message.channel.send("La table des quêtes a déjà été généré. Utilisez \"!quest remove\" pour la supprimer")
-        await tmpMsg.delete(delay=10)
-        return
+        return await asyncio.create_task(Send_Tmp_Message(message.channel, "La table des quêtes a déjà été généré. Utilisez \"!quest remove\" pour la supprimer", TMPMESSAGETIMER))
     questTableArray = Generate_Table(fileName, nbDay, noEmpty)
     sentIdArray = []
     for questTableVal in questTableArray:
@@ -266,19 +225,23 @@ async def Call_Generate(message, fileName):
         sentIdArray.append(str(sent.id))
     Generate_New_DB(fileName, sentIdArray, str(nbDay), str(noEmpty))
 
-async def Call_Update(message, fileName):
+async def Auto_Update(channelID, fileName):
+    channel = bot.client.get_channel(channelID)
+    await Call_Update(channel, fileName)
+
+async def Call_Update(channel, fileName):
     questMessageIDs = Get_Quest_Var(fileName, "messageID").split('\\')
     nbDay = int(Get_Quest_Var(fileName, "nbDay"))
     noEmpty = False
     if Get_Quest_Var(fileName, "noEmpty") == "True":
         noEmpty = True
-    i=0
+    i = 0
     for questMessageID in questMessageIDs:
-        questMsg =  await message.channel.fetch_message(int(questMessageID))
-        if (nbDay-7*i)>7:
+        questMsg = await channel.fetch_message(int(questMessageID))
+        if (nbDay-7*i) > 7:
             await questMsg.edit(content=Generate_Table(fileName, 7, noEmpty, datetime.date.today()+datetime.timedelta(days=i*7))[0])
         else:
-           await questMsg.edit(content=Generate_Table(fileName, (nbDay-7*i)%7, noEmpty, datetime.date.today()+datetime.timedelta(days=i*7))[0])
+            await questMsg.edit(content=Generate_Table(fileName, (nbDay-7*i)%7, noEmpty, datetime.date.today()+datetime.timedelta(days=i*7))[0])
         i=i+1
 
 async def Call_Remove(message, fileName):
@@ -326,7 +289,7 @@ def Generate_Empty_Day(date):
 
 def Generate_Day(date, hour, nameRPG, maxPlayer, mj, playerList):
     tmpString = DELIMITER
-    tmpString += "|[%s]| %s | %s | %s | %s |\n" % (date, hour.ljust(5), nameRPG.ljust(20)[:20], maxPlayer.ljust(2), only_ascii(Gclient.get_user(int(mj)).display_name).ljust(12)[:12])
+    tmpString += "|[%s]| %s | %s | %s | %s |\n" % (date, hour.ljust(5), nameRPG.ljust(20)[:20], maxPlayer.ljust(2), only_ascii(bot.client.get_user(int(mj)).display_name).ljust(12)[:12])
     tmpString += DELIMITER
     tmpString += Generate_Player_Table(playerList)
     return tmpString
@@ -339,7 +302,7 @@ def Generate_Player_Table(playerList):
         return tmpString
     for i in range(0,listLen):
         try:
-            tmpString += only_ascii(Gclient.get_user(int(playerList[i])).display_name).ljust(11)[:11] + " "
+            tmpString += only_ascii(bot.client.get_user(int(playerList[i])).display_name).ljust(11)[:11] + " "
         except :
             tmpString += "Joueur_ext  "
         
@@ -434,3 +397,14 @@ def is_same_user(user, username, discriminator):
         return True
     else:
         return False
+
+async def Send_Tmp_Message(channel, string, time):
+    try:
+        tmpMsg = await asyncio.wait_for(channel.send(string), timeout=5.0)
+        await asyncio.wait_for(tmpMsg.delete(delay=time), timeout=5.0)
+    except asyncio.TimeoutError:
+        print('Timout trying to send or delete the message: ' + string)
+    return
+
+async def Send_Not_Admin_Message():
+    return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous n'êtes pas administrateur !", TMPMESSAGETIMER))
