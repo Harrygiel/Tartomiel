@@ -428,3 +428,9 @@ def only_ascii(seq):
     seq_type= type(seq)
     printable = set(string.printable)
     return seq_type().join(filter(lambda x: x in printable, seq))
+
+def is_same_user(user, username, discriminator):
+    if user.name == username and user.discriminator == discriminator:
+        return True
+    else:
+        return False
