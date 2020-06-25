@@ -22,23 +22,50 @@ async def Quest_Manager(message, client):
     await message.delete(delay=30)
 
     if messageBody.lower().startswith('+event') or messageBody.lower().startswith('+e'):
+        if not(message.author.permissions_in(message.channel).manage_messages):
+            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
+            await tmpMsg.delete(delay=10)
+            return
         await Call_Create_Event(message, fileName)
         await Call_Update(message, fileName)
+
     elif messageBody.lower().startswith('-event') or messageBody.lower().startswith('-e'):
+        if not(message.author.permissions_in(message.channel).manage_messages):
+            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
+            await tmpMsg.delete(delay=10)
+            return
         await Call_Remove_Event(message, fileName)
         await Call_Update(message, fileName)
+
     elif messageBody.lower().startswith('+play') or messageBody.lower().startswith('+p'):
         await Call_Create_Particip(message, fileName, message.author.id)
         await Call_Update(message, fileName)
+
     elif messageBody.lower().startswith('-play') or messageBody.lower().startswith('-p'):
         await Call_Remove_Particip(message, fileName, message.author.id)
         await Call_Update(message, fileName)
+
     elif messageBody.lower().startswith('generate'):
+        if not(message.author.permissions_in(message.channel).manage_messages):
+            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
+            await tmpMsg.delete(delay=10)
+            return
         await Call_Generate(message, fileName)
+
     elif messageBody.lower().startswith('update'):
+        if not(message.author.permissions_in(message.channel).manage_messages):
+            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
+            await tmpMsg.delete(delay=10)
+            return
         await Call_Update(message, fileName)
+
     elif messageBody.lower().startswith('remove'):
+        if not(message.author.permissions_in(message.channel).manage_messages):
+            tmpMsg = await message.channel.send("Vous n'êtes pas administrateur !")
+            await tmpMsg.delete(delay=10)
+            return
         await Call_Remove(message, fileName)
+
     else:
         await message.channel.send("Commande non reconnu") 
 
@@ -52,6 +79,9 @@ async def Call_Create_Event(message, fileName):
         await tmpMsg.delete(delay=10)
         return
 
+    if len(questParameters[0]) == 10:
+        questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
+    questParameters[4] = only_numerics(questParameters[4])
     sessionDict = Get_Event_Dict(fileName)
     if questParameters[0]+questParameters[1]+questParameters[4] in sessionDict:
         tmpMsg = await message.channel.send("L'évènement est déjà dans la table des quêtes !")
@@ -73,6 +103,9 @@ async def Call_Remove_Event(message, fileName):
         return
 
     sessionDict = Get_Event_Dict(fileName)
+    if len(questParameters[0]) == 10:
+        questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
+    questParameters[2] = only_numerics(questParameters[2])
     if questParameters[0]+questParameters[1]+questParameters[2] in sessionDict:
         sessionDict.pop(questParameters[0]+questParameters[1]+questParameters[2])
         Set_Event_Dict(fileName, sessionDict)
@@ -87,30 +120,57 @@ async def Call_Remove_Event(message, fileName):
 async def Call_Create_Particip(message, fileName, userID):
     messageBody = message.content[7:]
     questParameters = messageBody.split(" ")[1:]
-    if len(questParameters)<3:
-        tmpMsg = await message.channel.send("Ajouter une participation demande plus de paramètre !")
+    sessionDict = Get_Event_Dict(fileName)
+    if len(questParameters[0]) == 10:
+        questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
+    if len(questParameters) == 1:
+        eventKeyArray = [ k for k,v in sessionDict.items() if questParameters[0] in k]
+        if len(eventKeyArray) == 0:
+            tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
+            await tmpMsg.delete(delay=10)
+            return
+        elif len(eventKeyArray) >1:
+            tmpMsg = await message.channel.send("Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande")
+            await tmpMsg.delete(delay=10)
+            return
+        eventKey = eventKeyArray[0]
+    elif len(questParameters) > 2:
+        questParameters[2] = only_numerics(questParameters[2])
+        eventKey = questParameters[0]+questParameters[1]+questParameters[2]
+    else:
+        tmpMsg = await message.channel.send("Le nombre de paramètre n'est pas cohérant")
         await tmpMsg.delete(delay=10)
         return
 
-    sessionDict = Get_Event_Dict(fileName)
-    eventKey = questParameters[0]+questParameters[1]+questParameters[2]
     if not(eventKey in sessionDict):
         tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
         await tmpMsg.delete(delay=10)
         return
 
-    if int(sessionDict[eventKey][3]) <= len(sessionDict[eventKey])-5:
+    adminPerm = False
+    if message.author.permissions_in(message.channel).manage_messages:
+        adminPerm = True
+
+    if adminPerm != True and int(sessionDict[eventKey][3]) <= len(sessionDict[eventKey])-5:
         tmpMsg = await message.channel.send("L'évènement est déjà complet !")
+        await tmpMsg.delete(delay=10)
+        return
+
+    if len(questParameters)>3:
+        if adminPerm != True:
+            tmpMsg = await message.channel.send("Vous n'avez pas les droits pour ajouter d'autre joueurs !")
+            await tmpMsg.delete(delay=10)
+            return
+        for userName in questParameters[3:]:
+            if userName !="":
+                sessionDict[eventKey].append(only_numerics(userName))
+        Set_Event_Dict(fileName, sessionDict)
+        tmpMsg = await message.channel.send("Les participants ont bien été ajouté, administrateur !")
         await tmpMsg.delete(delay=10)
         return
 
     if str(userID) in sessionDict[eventKey]:
         tmpMsg = await message.channel.send("Vous participez déjà à cet évènement !")
-        await tmpMsg.delete(delay=10)
-        return
-
-    if str(userID) == sessionDict[eventKey][4]:
-        tmpMsg = await message.channel.send("Vous êtes déjà le MJ !")
         await tmpMsg.delete(delay=10)
         return
 
@@ -123,15 +183,52 @@ async def Call_Create_Particip(message, fileName, userID):
 async def Call_Remove_Particip(message, fileName, userID):
     messageBody = message.content[7:]
     questParameters = messageBody.split(" ")[1:]
-    if len(questParameters)<3:
-        tmpMsg = await message.channel.send("Supprimer une participation demande plus de paramètre !")
+    sessionDict = Get_Event_Dict(fileName)
+    if len(questParameters[0]) == 10:
+        questParameters[0] = questParameters[0][:6] + questParameters[0][8:]
+    if len(questParameters) == 1:
+        eventKeyArray = [ k for k,v in sessionDict.items() if questParameters[0] in k]
+        if len(eventKeyArray) == 0:
+            tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
+            await tmpMsg.delete(delay=10)
+            return
+        elif len(eventKeyArray) >1:
+            tmpMsg = await message.channel.send("Il y a plus d'un évènement ce jour ! veuillez préciser l'heure et le MJ dans la commande")
+            await tmpMsg.delete(delay=10)
+            return
+        eventKey = eventKeyArray[0]
+    elif len(questParameters) > 2:
+        questParameters[2] = only_numerics(questParameters[2])
+        eventKey = questParameters[0]+questParameters[1]+questParameters[2]
+    else:
+        tmpMsg = await message.channel.send("Le nombre de paramètre n'est pas cohérant")
         await tmpMsg.delete(delay=10)
         return
 
-    eventKey = questParameters[0]+questParameters[1]+questParameters[2]
-    sessionDict = Get_Event_Dict(fileName)
     if not(eventKey in sessionDict):
         tmpMsg = await message.channel.send("L'évènement auquel vous voulez participer n'existe pas !")
+        await tmpMsg.delete(delay=10)
+        return
+
+    adminPerm = False
+    if message.author.permissions_in(message.channel).manage_messages:
+        adminPerm = True
+
+    if len(questParameters)>3:
+        if adminPerm != True:
+            tmpMsg = await message.channel.send("Vous n'avez pas les droits pour supprimer d'autre joueurs !")
+            await tmpMsg.delete(delay=10)
+            return
+        for userName in questParameters[3:]:
+            sessionDict[eventKey].remove(only_numerics(userName))
+        Set_Event_Dict(fileName, sessionDict)
+        tmpMsg = await message.channel.send("Les participants ont bien été retiré, administrateur !")
+        await tmpMsg.delete(delay=10)
+        return
+
+
+    if str(userID) == sessionDict[eventKey][4]:
+        tmpMsg = await message.channel.send("Vous êtes le MJ !")
         await tmpMsg.delete(delay=10)
         return
 
@@ -229,7 +326,7 @@ def Generate_Empty_Day(date):
 
 def Generate_Day(date, hour, nameRPG, maxPlayer, mj, playerList):
     tmpString = DELIMITER
-    tmpString += "|[%s]| %s | %s | %s | %s |\n" % (date, hour.ljust(5), nameRPG.ljust(20)[:20], maxPlayer.ljust(2), only_ascii(Gclient.get_user(int(only_numerics(mj))).name).ljust(12)[:12])
+    tmpString += "|[%s]| %s | %s | %s | %s |\n" % (date, hour.ljust(5), nameRPG.ljust(20)[:20], maxPlayer.ljust(2), only_ascii(Gclient.get_user(int(mj)).display_name).ljust(12)[:12])
     tmpString += DELIMITER
     tmpString += Generate_Player_Table(playerList)
     return tmpString
@@ -241,7 +338,11 @@ def Generate_Player_Table(playerList):
         tmpString += "".ljust(12*5) + "|\n"
         return tmpString
     for i in range(0,listLen):
-        tmpString += only_ascii(Gclient.get_user(int(only_numerics(playerList[i]))).name).ljust(11)[:11] + " "
+        try:
+            tmpString += only_ascii(Gclient.get_user(int(playerList[i])).display_name).ljust(11)[:11] + " "
+        except :
+            tmpString += "Joueur_ext  "
+        
         if (i+1)%5 == 0 and i<listLen-1:
             tmpString += "|\n| "
     if listLen%5 ==0:
