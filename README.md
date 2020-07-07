@@ -48,3 +48,13 @@ Exemple: `!quest -play 25/06/2020 `
 * date: date sous le format dd/mm/aa
 * heure: heure sous le format h:mm
 * MJ: Nom de l'utilisateur, sous le format discord
+
+## Planned features
+
+1) corriger l'affichage des noms
+2) améliorer le système de paramètre
+3) ajouter des sécurités anti bug
+4) un channel log
+5) notifier les joueurs quelque jour avant la partie en MP
+6) prévenir le MJ quand un joueurs rejoint ça partie 
+7) faire une notif dans préparation quand un MJ rajoute un evenement

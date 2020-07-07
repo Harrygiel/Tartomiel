@@ -3,7 +3,10 @@ import asyncio
 import datetime
 import discord
 import string
+import shlex
+from dateutil.parser import parse
 import __main__ as bot
+
 DELIMITER = "+----------+-------+----------------------+----+--------------+\n"
 TMPMESSAGETIMER = 10
 
@@ -38,6 +41,9 @@ async def Quest_Command(message, client):
     if message.author.permissions_in(message.channel).manage_messages:
         isAdmin = True
 
+    paramDict = Get_Parameters(messageBody)
+    print(paramDict)
+'''
     if messageBody.lower().startswith('+event') or messageBody.lower().startswith('+e'):
         if not isAdmin:
             return await asyncio.create_task(Send_Not_Admin_Message())
@@ -75,7 +81,8 @@ async def Quest_Command(message, client):
 
     else:
         await message.channel.send("Commande non reconnu")
-
+'''
+################## CALL COMMAND STUFF
 
 async def Call_Create_Event(message, fileName):
     messageBody = message.content[7:]
@@ -255,6 +262,8 @@ async def Call_Remove(message, fileName):
         await questMsg.delete()
     os.remove(fileName)
 
+################## TECHNICAL STUFF
+
 def Generate_Table(fileName, nbDay, noEmpty, firstday=datetime.date.today()):
     sessionDict = Get_Event_Dict(fileName)
 
@@ -319,6 +328,76 @@ def Generate_New_DB(fileName, messageIDArray, nbDay, noEmpty):
         fileP.write("#messageID=" + "\\".join(messageIDArray) + "\n")
         fileP.write("#nbDay=" + str(nbDay) + "\n")
         fileP.write("#noEmpty=" + str(noEmpty) + "\n")
+
+def Get_Parameters(message):
+    paramDict = dict()
+    paramList = shlex.split(message)
+    flag = True
+    while len(paramList):
+        if paramList[0].lower() == "+event" or paramList[0].lower() == "+e":
+            paramDict["type"] = 1
+        elif paramList[0].lower() == "+play" or paramList[0].lower() == "+p":
+            paramDict["type"] = 2
+        elif paramList[0].lower() == "-event" or paramList[0].lower() == "-e":
+            paramDict["type"] = 3
+        elif paramList[0].lower() == "-play" or paramList[0].lower() == "-p":
+            paramDict["type"] = 4
+        elif paramList[0].lower() == "generate":
+            paramDict["type"] = 5
+        elif paramList[0].lower() == "update":
+            paramDict["type"] = 6
+        elif paramList[0].lower() == "remove":
+            paramDict["type"] = 7
+        elif paramList[0].lower() == "-date" or paramList[0].lower() == "-d":
+            if len(paramList)>1:
+                paramDict["date"] = Get_Date(paramList[1])
+                paramList.pop(1)
+                if paramDict["date"] is None:
+                    return None
+            else:
+                return None
+        elif paramList[0].lower() == "-heure" or paramList[0].lower() == "-h" or paramList[0].lower() == "-hour":
+            if len(paramList)>1:
+                paramDict["hour"] = Get_Hour(paramList[1])
+                paramList.pop(1)
+                if paramDict["hour"] is None:
+                    return None
+            else:
+                return None
+        elif paramList[0].lower() == "-name" or paramList[0].lower() == "-n":
+            if len(paramList)>1:
+                paramDict["name"] = paramList[1]
+                paramList.pop(1)
+                if paramDict["name"] is None:
+                    return None
+            else:
+                return None
+        elif paramList[0].lower() == "-max" or paramList[0].lower() == "-m" or paramList[0].lower() == "-maximum":
+            if len(paramList)>1:
+                paramDict["max"] = only_numerics(paramList[1])
+                paramList.pop(1)
+                if paramDict["max"] is None:
+                    return None
+            else:
+                return None
+        elif paramList[0].lower() == "-mj" or paramList[0].lower() == "-gm":
+            if len(paramList)>1:
+                paramDict["mj"] = Get_User(paramList[1])
+                paramList.pop(1)
+                if paramDict["mj"] is None:
+                    return None
+            else:
+                return None
+        elif Get_Date(paramList[0]) is not None:
+                paramDict["date"] = Get_Date(paramList[0])
+        elif Get_Hour(paramList[0]) is not None:
+                paramDict["hour"] = Get_Hour(paramList[0])
+        else:
+            return None
+        paramList.pop(0)
+        print(paramList)
+
+    return paramDict
 
 def Get_Quest_Var(fileName, varName):
     with open(fileName, "r", encoding="UTF-8") as fileP:
@@ -391,6 +470,34 @@ def only_ascii(seq):
     seq_type= type(seq)
     printable = set(string.printable)
     return seq_type().join(filter(lambda x: x in printable, seq))
+
+def Get_Hour(string):
+    try:
+        return datetime.datetime.strptime(string, "%Hh%M").strftime("%Hh%M")
+    except ValueError:
+        pass
+    try:
+        return datetime.datetime.strptime(string, "%H:%M").strftime("%Hh%M")
+    except ValueError:
+        pass
+    return None
+
+def Get_Date(string):
+    try:
+        datetimeVal = parse(string, dayfirst=True)
+        if datetimeVal.date() != datetime.datetime.today().date():
+            return parse(string, dayfirst=True).strftime("%d/%m/%Y")
+        else:
+            return None
+    except ValueError:
+        return None
+
+def Get_User(string):
+    tmpstr = only_numerics(string)
+    if bot.client.get_user(int(tmpstr)) is not None:
+        return tmpstr
+    else:
+        return None
 
 def is_same_user(user, username, discriminator):
     if user.name == username and user.discriminator == discriminator:
