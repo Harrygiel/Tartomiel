@@ -397,7 +397,7 @@ def Get_Parameters(message):
             paramDict["player"].append("0")
         elif paramList[0].lower() == "-all":
             paramDict["all"] = True
-                elif paramList[0].lower() == "-noempty" or paramList[0].lower() == "-nonvide":
+        elif paramList[0].lower() == "-noempty" or paramList[0].lower() == "-nonvide":
             paramDict["empty"] = False
         elif Get_User_ID(paramList[0]) is not None:
             paramDict["player"].append(Get_User_ID(paramList[0]))
