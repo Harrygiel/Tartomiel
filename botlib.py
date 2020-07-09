@@ -181,7 +181,7 @@ async def Call_Generate(channel, paramDict,  fileName):
         noEmpty = False
 
     if "max" in paramDict:
-        nbDay = paramDict['max']:
+        nbDay = paramDict['max']
     else:
         nbDay = 30
 
