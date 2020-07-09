@@ -140,7 +140,7 @@ async def Call_Create_Particip(message, paramDict, fileName, userID):
         for userName in paramDict['player']:
             sessionDict[eventKey].append(only_numerics(userName))
         Set_Event_Dict(fileName, sessionDict)
-        await Call_Notify_GM(sessionDict[eventKey], paramDict['player'], True)
+        await Call_Notify_GM(sessionDict[eventKey][4], paramDict['player'], True)
         return await asyncio.create_task(Send_Tmp_Message(message.channel, "Les participants ont bien été ajouté, administrateur !", TMPMESSAGETIMER))
 
 async def Call_Remove_Particip(message, paramDict, fileName, userID):
@@ -161,7 +161,7 @@ async def Call_Remove_Particip(message, paramDict, fileName, userID):
         if str(userID) in sessionDict[eventKey]:
             sessionDict[eventKey].remove(str(userID))
             Set_Event_Dict(fileName, sessionDict)
-            await Call_Notify_GM(sessionDict[eventKey], [userID], False)
+            await Call_Notify_GM(sessionDict[eventKey][4], [userID], False)
             return await asyncio.create_task(Send_Tmp_Message(message.channel, "Participation supprimé!", TMPMESSAGETIMER))
         return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous ne participez pas à cet évènement !", TMPMESSAGETIMER))
     else:
@@ -171,7 +171,7 @@ async def Call_Remove_Particip(message, paramDict, fileName, userID):
             if userName != "" and only_numerics(userName) in sessionDict[eventKey]:
                 sessionDict[eventKey].remove(only_numerics(userName))
         Set_Event_Dict(fileName, sessionDict)
-        await Call_Notify_GM(sessionDict[eventKey], paramDict['player'], False)
+        await Call_Notify_GM(sessionDict[eventKey][4], paramDict['player'], False)
         return await asyncio.create_task(Send_Tmp_Message(message.channel, "Les participants ont bien été supprimé, administrateur !", TMPMESSAGETIMER))
 
 async def Call_Generate(channel, paramDict,  fileName):
