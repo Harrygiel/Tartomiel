@@ -238,7 +238,6 @@ async def Call_Notify(paramDict, channel, fileName):
         return await asyncio.create_task(Send_Tmp_Message(channel, "Il n'y a pas de joueur sur cet évènement !", TMPMESSAGETIMER))
 
     for player in sessionDict[eventKey][5:]:
-        print(player)
         await Send_Direct_Message(bot.client.get_user(int(player)), "%s commence à %s !" %(sessionDict[eventKey][2], sessionDict[eventKey][1]))
     return await asyncio.create_task(Send_Tmp_Message(channel, "Utilisateurs notifié.", TMPMESSAGETIMER))
 
@@ -498,13 +497,17 @@ def Get_Hour(string):
         return datetime.datetime.strptime(string, "%H:%M").strftime("%Hh%M")
     except ValueError:
         pass
+    try:
+        return datetime.datetime.strptime(string, "%Hh").strftime("%Hh%M")
+    except ValueError:
+        pass
     return None
 
 def Get_Date(string):
     try:
         datetimeVal = parse(string, dayfirst=True)
         if datetimeVal.date() != datetime.datetime.today().date():
-            return parse(string, dayfirst=True).strftime("%d/%m/%y")
+            return parse(string, dayfirst=True, yearfirst=False).strftime("%d/%m/%y")
         else:
             return None
     except ValueError:
