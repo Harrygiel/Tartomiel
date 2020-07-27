@@ -48,7 +48,7 @@ async def Quest_Command(message, client):
     if paramDict["type"] == 1:
         if not isAdmin:
             return await asyncio.create_task(Send_Not_Admin_Message())
-        await Call_Create_Event(paramDict, message.channel, fileName)
+        await Call_Create_Event(paramDict, message.channel, message.author.id, fileName)
         await Call_Update(message.channel, fileName)
 
     elif paramDict["type"] == 3:
@@ -88,11 +88,22 @@ async def Quest_Command(message, client):
 
 ################## CALL COMMAND STUFF
 
-async def Call_Create_Event(paramDict, channel, fileName):
+async def Call_Create_Event(paramDict, channel, authorID, fileName):
     sessionDict = Get_Event_Dict(fileName)
     matchingList = Get_Matching_Events(paramDict, sessionDict)
     if len(matchingList)>0:
         return await asyncio.create_task(Send_Tmp_Message(channel, "L'évènement est déjà dans la table des quêtes !", TMPMESSAGETIMER))
+
+    if "date" not in paramDict:
+        paramDict["date"] = datetime.datetime.now().strftime("%d/%m/%y")
+    if "hour" not in paramDict:
+        paramDict["hour"] = datetime.datetime.now().strftime("%Hh%M")
+    if "name" not in paramDict:
+        paramDict["name"] = "JdR TdDI"
+    if "max" not in paramDict:
+        paramDict["max"] = "4"
+    if "mj" not in paramDict:
+        paramDict["mj"] = str(authorID)
 
     with open(fileName, "a") as fileP:
         fileP.write("\n" + paramDict['date'] + "\\" + paramDict['hour'] + "\\" + paramDict['name'] + "\\" + paramDict['max'] + "\\" + paramDict['mj'] + "\\")
@@ -389,6 +400,7 @@ def Get_Parameters(message):
             else:
                 return None
         elif Get_Date(paramList[0]) is not None:
+                print("here")
                 paramDict["date"] = Get_Date(paramList[0])
         elif Get_Hour(paramList[0]) is not None:
                 paramDict["hour"] = Get_Hour(paramList[0])
@@ -504,13 +516,13 @@ def Get_Hour(string):
     return None
 
 def Get_Date(string):
+    if '/' not in string and '-' not in string: #Then it's not a date, but an hour
+        return None
     try:
         datetimeVal = parse(string, dayfirst=True)
-        if datetimeVal.date() != datetime.datetime.today().date():
-            return parse(string, dayfirst=True, yearfirst=False).strftime("%d/%m/%y")
-        else:
-            return None
+        return parse(string, dayfirst=True, yearfirst=False).strftime("%d/%m/%y")
     except ValueError:
+        print("Get_Date: Couldn't parse the date")
         return None
 
 def Get_User_ID(string):
