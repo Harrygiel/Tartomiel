@@ -533,7 +533,10 @@ def Get_User_ID(string):
         return None
 
 def Get_Nick(userID):
-	print(userID)
+	user = Gchannel.guild.get_member(int(userID))
+	if user is None:
+		print("il y a une erreur avec" + userID)
+		return "Error"
     nick = Gchannel.guild.get_member(int(userID)).nick
     if nick is not None:
         return nick
