@@ -464,7 +464,7 @@ def Set_Event_Dict(fileName, eventDict):
                 for playerName in value[5:]:
                     newString += "\\" + playerName
             print(newString)
-            newFileLine.append(newString)
+            newFileLine.append(newString + "\n")
 
     with open(fileName, "w", encoding="UTF-8") as fileP:
         fileP.writelines(newFileLine)
