@@ -25,8 +25,8 @@ async def on_message(message):
 
 loop = asyncio.get_event_loop()
 loop.create_task(botlib.Quest_Manager())
-#loop.create_task(client.run(discordtoken.TOKEN))
-loop.create_task(client.run(discordtoken.DEVTOKEN))
+loop.create_task(client.run(discordtoken.TOKEN))
+#loop.create_task(client.run(discordtoken.DEVTOKEN))
 loop.run_forever()
 
 #asyncio.gather(botlib.Quest_Manager(), client.run(discordtoken.TOKEN))

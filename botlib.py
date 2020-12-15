@@ -33,6 +33,8 @@ async def Quest_Manager():
 async def Quest_Command(message, client):
     global Gmessage
     Gmessage = message
+    global Gchannel
+    Gchannel = message.channel
     messageBody = message.content[7:]
     fileName = "tableList/" + str(message.channel.id) + ".txt"
     await asyncio.create_task(asyncio.wait_for(message.delete(delay=30), timeout=5.0))
@@ -41,7 +43,12 @@ async def Quest_Command(message, client):
     if message.author.permissions_in(message.channel).manage_messages:
         isAdmin = True
 
+    global GfileName
+    GfileName = fileName
+
     paramDict = Get_Parameters(messageBody)
+
+    await Send_Log("<@" + str(message.author.id) +"> a envoyé : !quest " + messageBody)
     if paramDict is None:
         return await asyncio.create_task(Send_Tmp_Message(message.channel, "Commande non reconnu", TMPMESSAGETIMER))
 
@@ -210,8 +217,6 @@ async def Auto_Update(channelID, fileName):
     await Call_Update(channel, fileName)
 
 async def Call_Update(channel, fileName):
-    global Gchannel
-    Gchannel = channel
     questMessageIDs = Get_Quest_Var(fileName, "messageID").split('\\')
     nbDay = int(Get_Quest_Var(fileName, "nbDay"))
     noEmpty = False
@@ -400,7 +405,6 @@ def Get_Parameters(message):
             else:
                 return None
         elif Get_Date(paramList[0]) is not None:
-                print("here")
                 paramDict["date"] = Get_Date(paramList[0])
         elif Get_Hour(paramList[0]) is not None:
                 paramDict["hour"] = Get_Hour(paramList[0])
@@ -410,7 +414,7 @@ def Get_Parameters(message):
             paramDict["all"] = True
         elif paramList[0].lower() == "-noempty" or paramList[0].lower() == "-nonvide":
             paramDict["empty"] = False
-        elif Get_User_ID(paramList[0]) is not None:
+        elif any(char.isdigit() for char in paramList[0]) and Get_User_ID(paramList[0]) is not None:
             paramDict["player"].append(Get_User_ID(paramList[0]))
         else:
             return None
@@ -437,33 +441,31 @@ def Get_Event_Dict(fileName):
             fileLines = fileP.readlines()
 
         for i in range(0, len(fileLines)):
-            if fileLines[i].startswith("#") or fileLines[i].startswith("\n"):
+            if fileLines[i].startswith("#"):
+                sessionDict[fileLines[i].split("=")[0]] = fileLines[i].split("=")[1]
+            elif fileLines[i].startswith("\n"):
                 continue
-            lineArray = fileLines[i].split("\\")[:-1]
-            sessionDict[lineArray[0] + lineArray[1] + lineArray[4]] = lineArray
+            else:
+                lineArray = fileLines[i].split("\\")[:-1]
+                sessionDict[lineArray[0] + lineArray[1] + lineArray[4]] = lineArray
     return sessionDict
 
 def Set_Event_Dict(fileName, eventDict):
     
     newFileLine = []
-    if os.path.exists(fileName):
-        with open(fileName, "r", encoding="UTF-8") as fileP:
-            fileLine = fileP.readline()
-            while fileLine:
-                if fileLine.startswith("#"):
-                    newFileLine.append(fileLine)
-                else:
-                    break
-                fileLine = fileP.readline()
+    for key, value in eventDict.items():
+        if key.startswith("#"):
+            newFileLine.append(key + "=" + value)
 
     for key, value in eventDict.items():
-        newString = value[0] + "\\" + value[1] + "\\" + value[2] + "\\" + value[3] + "\\" + value[4]
-        if len(value)>5:
-            for playerName in value[5:]:
-                newString += "\\" + playerName
-        newString += "\\\n"
-        newFileLine.append(newString)
+        if not key.startswith("#"):
+            newString = value[0] + "\\" + value[1] + "\\" + value[2] + "\\" + value[3] + "\\" + value[4]
+            if len(value)>5:
+                for playerName in value[5:]:
+                    newString += "\\" + playerName
+            newFileLine.append(newString)
 
+    newFileLine
     with open(fileName, "w", encoding="UTF-8") as fileP:
         fileP.writelines(newFileLine)
 
@@ -522,7 +524,7 @@ def Get_Date(string):
         datetimeVal = parse(string, dayfirst=True)
         return parse(string, dayfirst=True, yearfirst=False).strftime("%d/%m/%y")
     except ValueError:
-        print("Get_Date: Couldn't parse the date")
+        asyncio.create_task("Get_Date: Couldn't parse the date")
         return None
 
 def Get_User_ID(string):
@@ -549,8 +551,16 @@ def is_same_user(user, username, discriminator):
     else:
         return False
 
+async def Send_Message(channel, string):
+    try:
+        tmpMsg = await asyncio.wait_for(channel.send(string), timeout=5.0)
+    except asyncio.TimeoutError:
+        print('Timout trying to send the message: ' + string)
+    return
+
 async def Send_Tmp_Message(channel, string, time):
     try:
+        await Send_Log(string)
         tmpMsg = await asyncio.wait_for(channel.send(string), timeout=5.0)
         await asyncio.wait_for(tmpMsg.delete(delay=time), timeout=5.0)
     except asyncio.TimeoutError:
@@ -565,3 +575,9 @@ async def Send_Direct_Message(user, string):
     return
 async def Send_Not_Admin_Message():
     return await asyncio.create_task(Send_Tmp_Message(message.channel, "Vous n'êtes pas administrateur !", TMPMESSAGETIMER))
+
+async def Send_Log(msg):
+    sessionDict = Get_Event_Dict(GfileName)
+    if sessionDict:
+        if "#logID" in sessionDict:
+            return await asyncio.create_task(Send_Message(Gchannel.guild.get_channel(int(sessionDict["#logID"])), msg))
